@@ -25,22 +25,40 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+## Project Structure
+
+```
+llm-ocr/
+├── llm_ocr.py          # Main OCR script
+├── requirements.txt    # Python dependencies
+├── README.md          # Documentation
+├── .gitignore         # Git ignore file
+├── pdfs/              # Place your PDF files here
+├── texts/             # OCR output will be saved here
+└── venv/              # Virtual environment (not tracked by git)
+```
+
 ## Usage
 
-Basic usage:
+**First, activate the virtual environment:**
 ```bash
-python llm_ocr.py document.pdf --api-endpoint https://api.openai.com/v1 --api-key your-api-key
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
-With environment variable for API key:
+**Basic usage:**
+```bash
+python llm_ocr.py pdfs/document.pdf --api-endpoint https://api.openai.com/v1 --api-key your-api-key
+```
+
+**With environment variable for API key:**
 ```bash
 export OPENAI_API_KEY=your-api-key
-python llm_ocr.py document.pdf --api-endpoint https://api.openai.com/v1
+python llm_ocr.py pdfs/document.pdf --api-endpoint https://api.openai.com/v1
 ```
 
-Custom output directory:
+**Output to texts directory:**
 ```bash
-python llm_ocr.py document.pdf --api-endpoint https://api.openai.com/v1 --output-dir my_output
+python llm_ocr.py pdfs/document.pdf --api-endpoint https://api.openai.com/v1 --output-dir texts/document_output
 ```
 
 ## Arguments

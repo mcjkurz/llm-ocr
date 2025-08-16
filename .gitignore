@@ -25,6 +25,10 @@ venv/
 env/
 ENV/
 
+# Project-specific directories
+pdfs/
+texts/
+
 # IDE
 .vscode/
 .idea/
