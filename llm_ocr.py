@@ -8,7 +8,7 @@ import os
 import sys
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional, Generator, Tuple
 import base64
 import io
 
@@ -35,36 +35,45 @@ class LLMOCRProcessor:
         self.api_key = api_key
         self.chinese_prompt = "请识别并提取这个图片中的所有中文文字"
         
-    def pdf_to_images(self, pdf_path: str) -> List[Image.Image]:
+    def pdf_pages_generator(self, pdf_path: str):
         """
-        Convert PDF pages to images
+        Generator that yields PDF pages as images one at a time
         
         Args:
             pdf_path: Path to the PDF file
             
-        Returns:
-            List of PIL Images
+        Yields:
+            Tuple of (page_number, PIL.Image, total_pages)
         """
-        logger.info(f"Converting PDF to images: {pdf_path}")
-        images = []
+        logger.info(f"Opening PDF for processing: {pdf_path}")
         
         try:
             doc = fitz.open(pdf_path)
-            for page_num in range(len(doc)):
+            total_pages = len(doc)
+            logger.info(f"PDF has {total_pages} pages")
+            
+            for page_num in range(total_pages):
+                logger.info(f"Processing page {page_num + 1}/{total_pages}")
                 page = doc.load_page(page_num)
+                
                 # Convert to image with high DPI for better OCR quality
                 mat = fitz.Matrix(2.0, 2.0)  # 2x zoom for better quality
                 pix = page.get_pixmap(matrix=mat)
                 img_data = pix.tobytes("png")
                 img = Image.open(io.BytesIO(img_data))
-                images.append(img)
-                logger.info(f"Converted page {page_num + 1}/{len(doc)}")
+                
+                yield (page_num + 1, img, total_pages)
+                
+                # Clean up page resources immediately
+                pix = None
+                page = None
+                
             doc.close()
-        except Exception as e:
-            logger.error(f"Error converting PDF to images: {e}")
-            raise
+            logger.info("PDF processing completed")
             
-        return images
+        except Exception as e:
+            logger.error(f"Error processing PDF: {e}")
+            raise
     
     def image_to_base64(self, image: Image.Image) -> str:
         """
@@ -148,6 +157,7 @@ class LLMOCRProcessor:
     def process_pdf(self, pdf_path: str, output_dir: Optional[str] = None) -> None:
         """
         Process PDF file and save extracted text to separate files
+        Uses generator pattern for memory efficiency
         
         Args:
             pdf_path: Path to the PDF file
@@ -167,29 +177,29 @@ class LLMOCRProcessor:
         output_path.mkdir(exist_ok=True)
         logger.info(f"Output directory: {output_path}")
         
-        # Convert PDF to images
+        # Process each page using generator (memory efficient)
         try:
-            images = self.pdf_to_images(str(pdf_path))
+            for page_num, image, total_pages in self.pdf_pages_generator(str(pdf_path)):
+                logger.info(f"Extracting text from page {page_num}/{total_pages}")
+                
+                # Extract text using LLM
+                extracted_text = self.ocr_image(image)
+                
+                if extracted_text:
+                    # Save to text file
+                    output_file = output_path / f"page_{page_num:03d}.txt"
+                    with open(output_file, 'w', encoding='utf-8') as f:
+                        f.write(extracted_text)
+                    logger.info(f"Saved extracted text to: {output_file}")
+                else:
+                    logger.warning(f"No text extracted from page {page_num}")
+                
+                # Clean up image from memory immediately
+                image.close()
+                
         except Exception as e:
-            logger.error(f"Failed to convert PDF to images: {e}")
+            logger.error(f"Failed to process PDF: {e}")
             return
-        
-        # Process each page
-        for i, image in enumerate(images):
-            page_num = i + 1
-            logger.info(f"Processing page {page_num}/{len(images)}")
-            
-            # Extract text using LLM
-            extracted_text = self.ocr_image(image)
-            
-            if extracted_text:
-                # Save to text file
-                output_file = output_path / f"page_{page_num:03d}.txt"
-                with open(output_file, 'w', encoding='utf-8') as f:
-                    f.write(extracted_text)
-                logger.info(f"Saved extracted text to: {output_file}")
-            else:
-                logger.warning(f"No text extracted from page {page_num}")
         
         logger.info(f"Processing completed. Results saved to: {output_path}")
 
