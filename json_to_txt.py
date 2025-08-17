@@ -6,6 +6,7 @@ JSON to TXT Converter - Convert OCR JSON results to text with configurable order
 import os
 import json
 import logging
+import re
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 
@@ -56,6 +57,88 @@ class JSONToTxtConverter:
                 return float(bbox[0]), float(bbox[1])
         
         return 0.0, 0.0
+    
+    def _extract_page_number(self, filename: str) -> Optional[int]:
+        """
+        Extract page number from filename
+        
+        Args:
+            filename: The filename to extract page number from
+            
+        Returns:
+            Page number if found, None otherwise
+        """
+        # Remove file extension and _api suffix for pattern matching
+        base_name = filename
+        if base_name.endswith('.json'):
+            base_name = base_name[:-5]  # Remove .json
+        if base_name.endswith('_api'):
+            base_name = base_name[:-4]  # Remove _api
+        
+        # Look for patterns like page_1, page1, p1, 001, etc.
+        patterns = [
+            r'page[-_]?(\d+)',  # page_1, page-1, page1
+            r'p[-_]?(\d+)',     # p_1, p-1, p1
+            r'^(\d+)$',         # just numbers like 001, 1, etc.
+            r'(\d+)$'           # numbers at the end
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, base_name, re.IGNORECASE)
+            if match:
+                return int(match.group(1))
+        
+        return None
+    
+    def _group_files_by_page(self, json_files: List[Path]) -> Dict[int, Path]:
+        """
+        Group JSON files by page number, prioritizing _api.json files
+        
+        Args:
+            json_files: List of JSON file paths
+            
+        Returns:
+            Dictionary mapping page numbers to selected file paths
+        """
+        page_files = {}  # page_number -> {'regular': path, 'api': path}
+        
+        for file_path in json_files:
+            page_num = self._extract_page_number(file_path.name)
+            if page_num is None:
+                # For files without clear page numbers, use a hash of the filename as page number
+                page_num = hash(file_path.stem) % 100000  # Keep it reasonable
+            
+            if page_num not in page_files:
+                page_files[page_num] = {}
+            
+            # Determine if this is an API file
+            if file_path.name.endswith('_api.json'):
+                page_files[page_num]['api'] = file_path
+            else:
+                page_files[page_num]['regular'] = file_path
+        
+        # Select the best file for each page (prioritize API files)
+        selected_files = {}
+        api_count = 0
+        regular_count = 0
+        
+        for page_num, files in page_files.items():
+            if 'api' in files:
+                selected_files[page_num] = files['api']
+                api_count += 1
+            elif 'regular' in files:
+                selected_files[page_num] = files['regular']
+                regular_count += 1
+        
+        # Log summary instead of individual files
+        if api_count > 0 and regular_count > 0:
+            logger.info(f"Selected {api_count} API files and {regular_count} regular files")
+        elif api_count > 0:
+            logger.info(f"Selected {api_count} API files")
+        else:
+            logger.info(f"Selected {regular_count} regular files")
+        
+        return selected_files
     
     def _sort_regions(self, regions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
@@ -128,29 +211,36 @@ class JSONToTxtConverter:
             logger.error(f"Error processing JSON file {json_path}: {e}")
             raise
     
-    def convert_json_files_to_txt(self, json_paths: List[str], output_file: Optional[str] = None) -> str:
+    def convert_json_files_to_txt(self, json_paths: List[str], output_file: Optional[str] = None, page_numbers: Optional[List[int]] = None) -> str:
         """
         Convert multiple JSON files to a single text file
         
         Args:
             json_paths: List of JSON file paths
             output_file: Optional output text file path
+            page_numbers: Optional list of page numbers corresponding to each file
             
         Returns:
             Combined text from all JSON files
         """
         all_text = []
         
-        for i, json_path in enumerate(json_paths, 1):
+        for i, json_path in enumerate(json_paths):
             try:
                 text = self.convert_json_to_txt(json_path)
                 if text.strip():  # Only include non-empty text
-                    # Add page separator with page number
-                    page_separator = f"---- page {i} ----"
-                    if i > 1:  # Add separator before content (except for first page)
+                    # Use actual page number if provided, otherwise use index + 1
+                    if page_numbers and i < len(page_numbers):
+                        page_num = page_numbers[i]
+                    else:
+                        page_num = i + 1
+                    
+                    # Add page separator with actual page number
+                    page_separator = f"---- page {page_num} ----"
+                    if i > 0:  # Add separator before content (except for first page)
                         all_text.append(page_separator)
                     all_text.append(text)
-                    logger.info(f"Processed {json_path}: {len(text)} characters")
+                    logger.debug(f"Processed {json_path}: {len(text)} characters")
                 else:
                     logger.warning(f"No text extracted from {json_path}")
             
@@ -176,7 +266,8 @@ class JSONToTxtConverter:
     
     def convert_directory_to_txt(self, json_dir: str, output_file: str) -> str:
         """
-        Convert all JSON files in a directory to a single text file
+        Convert all JSON files in a directory to a single text file.
+        Prioritizes _api.json files over regular .json files for the same page.
         
         Args:
             json_dir: Directory containing JSON files
@@ -192,16 +283,26 @@ class JSONToTxtConverter:
         
         # Find all JSON files
         json_files = list(json_dir.glob("*.json"))
-        json_files = sorted(json_files)  # Sort for consistent ordering
         
         if not json_files:
             raise ValueError(f"No JSON files found in {json_dir}")
         
         logger.info(f"Found {len(json_files)} JSON files in {json_dir}")
         
-        json_paths = [str(f) for f in json_files]
+        # Group files by page and prioritize _api.json files
+        selected_files = self._group_files_by_page(json_files)
         
-        return self.convert_json_files_to_txt(json_paths, output_file)
+        if not selected_files:
+            raise ValueError(f"No valid JSON files could be processed from {json_dir}")
+        
+        # Sort by page number for consistent ordering
+        sorted_pages = sorted(selected_files.keys())
+        json_paths = [str(selected_files[page]) for page in sorted_pages]
+        page_numbers = sorted_pages  # Use the actual page numbers
+        
+        logger.info(f"Selected {len(json_paths)} JSON files after prioritization")
+        
+        return self.convert_json_files_to_txt(json_paths, output_file, page_numbers)
 
 
 def main():

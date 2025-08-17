@@ -1,89 +1,86 @@
-# LLM OCR
+# LLM OCR Pipeline
 
-A simple tool to extract text from PDF documents using LLM API endpoints. The tool converts PDF pages to images and sends them to an OpenAI-compatible API for OCR processing.
+A comprehensive OCR pipeline that converts PDF documents to text using PaddleOCR and OpenAI-compatible APIs as fallback.
 
-## Features
+## Pipeline Overview
 
-- Convert PDF documents to individual page images
-- Extract text from images using LLM vision capabilities
-- Save extracted text as separate `.txt` files
-- Support for Chinese text recognition
-- Simple command-line interface
+The OCR process follows these steps:
 
-## Installation
+1. **PDF to Images** (`pdf_to_img.py`) - Convert PDF pages to individual images
+2. **OCR Processing** (`ocr_processor.py`) - Extract text using PaddleOCR 
+3. **API Fallback** (`ocr_img_api_fallback.py`) - Use OpenAI-compatible API for difficult images
+4. **Text Generation** (`json_to_txt.py`) - Combine JSON results into final text file
 
-1. Clone this repository:
+## Quick Start
+
 ```bash
-git clone https://github.com/mcjkurz/llm-ocr.git
-cd llm-ocr
-```
-
-2. Create a virtual environment and install dependencies:
-```bash
+# Install dependencies
 python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate
 pip install -r requirements.txt
+
+# Run complete pipeline
+./run_pipeline.sh input.pdf output.txt
 ```
 
-## Project Structure
+## Manual Usage
 
-```
-llm-ocr/
-├── llm_ocr.py          # Main OCR script
-├── requirements.txt    # Python dependencies
-├── README.md          # Documentation
-├── .gitignore         # Git ignore file
-├── pdfs/              # Place your PDF files here
-├── texts/             # OCR output will be saved here
-└── venv/              # Virtual environment (not tracked by git)
-```
-
-## Usage
-
-**First, activate the virtual environment:**
+### 1. Convert PDF to Images
 ```bash
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+python3 pdf_to_img.py pdfs/document.pdf images/
 ```
 
-**Basic usage:**
+### 2. Run OCR Processing  
 ```bash
-python llm_ocr.py pdfs/document.pdf --api-endpoint https://api.openai.com/v1 --api-key your-api-key
+python3 ocr_processor.py images/ json_output/
 ```
 
-**With environment variable for API key:**
+### 3. Apply API Fallback (Optional)
 ```bash
-export OPENAI_API_KEY=your-api-key
-python llm_ocr.py pdfs/document.pdf --api-endpoint https://api.openai.com/v1
+python3 ocr_img_api_fallback.py json_output/ images/ --api-key YOUR_API_KEY
 ```
 
-**Output to texts directory:**
+### 4. Generate Final Text
 ```bash
-python llm_ocr.py pdfs/document.pdf --api-endpoint https://api.openai.com/v1 --output-dir texts/document_output
+python3 json_to_txt.py json_output/ final_output.txt
 ```
 
-## Arguments
+## Configuration
 
-- `pdf_path`: Path to the PDF file to process (required)
-- `--api-endpoint`: OpenAI-compatible API endpoint (required)
-- `--api-key`: API key for authentication (optional if OPENAI_API_KEY env var is set)
-- `--output-dir`: Output directory for extracted text files (optional, defaults to `{pdf_filename}_ocr_output`)
+- **Language**: Change OCR language in `ocr_processor.py` (default: 'ch' for Chinese)
+- **API Endpoint**: Configure in `ocr_img_api_fallback.py` for fallback processing
+- **Text Ordering**: Adjust box ordering in `json_to_txt.py` (top-bottom, left-right, etc.)
 
-## Output
+## File Prioritization
 
-The tool creates a directory containing separate `.txt` files for each page:
-```
-document_ocr_output/
-├── page_001.txt
-├── page_002.txt
-└── page_003.txt
-```
+The pipeline automatically prioritizes `_api.json` files over regular `.json` files for the same page, ensuring the best OCR results are used in the final output.
 
 ## Requirements
 
 - Python 3.7+
-- OpenAI-compatible API endpoint with vision capabilities
-- PDF files to process
+- PaddleOCR and PaddlePaddle
+- OpenAI-compatible API key (for fallback processing)
+- PDF documents to process
 
-## License
+## Output
 
-MIT License
+The pipeline generates:
+- Individual page images (`.png` files)
+- OCR results in JSON format
+- Final combined text file
+
+## Directory Structure
+
+```
+llm-ocr/
+├── pdf_to_img.py           # PDF to image conversion
+├── ocr_processor.py        # PaddleOCR processing  
+├── ocr_img_api_fallback.py # API fallback processing
+├── json_to_txt.py          # JSON to text conversion
+├── run_pipeline.sh         # Complete pipeline script
+├── requirements.txt        # Python dependencies
+├── pdfs/                   # Input PDF files
+├── images/                 # Generated images
+├── json_output/            # OCR JSON results
+└── texts/                  # Final text outputs
+```
