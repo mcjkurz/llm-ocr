@@ -27,29 +27,29 @@ pip install -r requirements.txt
 
 ### 1. Convert PDF to Images
 ```bash
-python3 pdf_to_img.py pdfs/document.pdf images/
+python3 scripts/pdf_to_img.py pdfs/document.pdf images/
 ```
 
 ### 2. Run OCR Processing  
 ```bash
-python3 ocr_processor.py images/ json_output/
+python3 scripts/ocr_processor.py images/ json_output/
 ```
 
 ### 3. Apply API Fallback (Optional)
 ```bash
-python3 ocr_img_api_fallback.py json_output/ images/ --api-key YOUR_API_KEY
+python3 scripts/ocr_img_api_fallback.py json_output/ images/ --api-key YOUR_API_KEY
 ```
 
 ### 4. Generate Final Text
 ```bash
-python3 json_to_txt.py json_output/ final_output.txt
+python3 scripts/json_to_txt.py json_output/ final_output.txt
 ```
 
 ## Configuration
 
-- **Language**: Change OCR language in `ocr_processor.py` (default: 'ch' for Chinese)
-- **API Endpoint**: Configure in `ocr_img_api_fallback.py` for fallback processing
-- **Text Ordering**: Adjust box ordering in `json_to_txt.py` (top-bottom, left-right, etc.)
+- **Language**: Change OCR language in `scripts/ocr_processor.py` (default: 'ch' for Chinese)
+- **API Endpoint**: Configure in `scripts/ocr_img_api_fallback.py` for fallback processing
+- **Text Ordering**: Adjust box ordering in `scripts/json_to_txt.py` (top-bottom, left-right, etc.)
 
 ## File Prioritization
 
@@ -73,12 +73,15 @@ The pipeline generates:
 
 ```
 llm-ocr/
-├── pdf_to_img.py           # PDF to image conversion
-├── ocr_processor.py        # PaddleOCR processing  
-├── ocr_img_api_fallback.py # API fallback processing
-├── json_to_txt.py          # JSON to text conversion
+├── scripts/                # Python scripts
+│   ├── pdf_to_img.py           # PDF to image conversion
+│   ├── ocr_processor.py        # PaddleOCR processing  
+│   ├── ocr_img_api_fallback.py # API fallback processing
+│   ├── ocr_img_api.py          # API OCR utilities
+│   └── json_to_txt.py          # JSON to text conversion
 ├── run_pipeline.sh         # Complete pipeline script
 ├── requirements.txt        # Python dependencies
+├── README.md               # This file
 ├── pdfs/                   # Input PDF files
 ├── images/                 # Generated images
 ├── json_output/            # OCR JSON results

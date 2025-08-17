@@ -48,20 +48,20 @@ mkdir -p "$(dirname "$OUTPUT_TXT")"
 
 echo ""
 echo "Step 1/4: Converting PDF to images..."
-python3 pdf_to_img.py "$INPUT_PDF" "$IMAGES_DIR"
+python3 scripts/pdf_to_img.py "$INPUT_PDF" "$IMAGES_DIR"
 
 echo ""
 echo "Step 2/4: Running OCR with PaddleOCR..."
-python3 ocr_processor.py "$IMAGES_DIR" "$JSON_DIR"
+python3 scripts/ocr_processor.py "$IMAGES_DIR" "$JSON_DIR"
 
 echo ""
 echo "Step 3/4: Applying API fallback (if needed)..."
 if [ -n "$API_KEY" ]; then
     echo "🔑 Using provided API key for fallback processing"
-    python3 ocr_img_api_fallback.py "$JSON_DIR" "$IMAGES_DIR" --api-key "$API_KEY"
+    python3 scripts/ocr_img_api_fallback.py "$JSON_DIR" "$IMAGES_DIR" --api-key "$API_KEY"
 elif [ -n "$OPENAI_API_KEY" ]; then
     echo "🔑 Using OPENAI_API_KEY environment variable"
-    python3 ocr_img_api_fallback.py "$JSON_DIR" "$IMAGES_DIR" --api-key "$OPENAI_API_KEY"
+    python3 scripts/ocr_img_api_fallback.py "$JSON_DIR" "$IMAGES_DIR" --api-key "$OPENAI_API_KEY"
 else
     echo "⚠️  No API key provided. Skipping API fallback processing."
     echo "   (Set OPENAI_API_KEY environment variable or pass as 3rd argument)"
@@ -69,7 +69,7 @@ fi
 
 echo ""
 echo "Step 4/4: Generating final text file..."
-python3 json_to_txt.py "$JSON_DIR" "$OUTPUT_TXT"
+python3 scripts/json_to_txt.py "$JSON_DIR" "$OUTPUT_TXT"
 
 echo ""
 echo "✅ Pipeline completed successfully!"
