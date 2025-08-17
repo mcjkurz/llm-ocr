@@ -1,4 +1,4 @@
-# LLM OCR Pipeline
+# LLM Paddle OCR Pipeline
 
 A comprehensive OCR pipeline that converts PDF documents to text using PaddleOCR and OpenAI-compatible APIs as fallback.
 
@@ -72,7 +72,7 @@ The pipeline generates:
 ## Directory Structure
 
 ```
-llm-ocr/
+llm-paddle-ocr/
 ├── scripts/                # Python scripts
 │   ├── pdf_to_img.py           # PDF to image conversion
 │   ├── ocr_processor.py        # PaddleOCR processing  
